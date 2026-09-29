@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "redistributeHdc": false,
+  "enforceSha256": false,
+  "selectionPriority": ["managed", "commandLineTools", "devEcoStudio"],
+  "allowedVersions": [
+    {
+      "version": "3.1.0b",
+      "sha256": null
+    }
+  ]
+}

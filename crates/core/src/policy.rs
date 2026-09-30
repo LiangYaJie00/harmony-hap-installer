@@ -268,6 +268,11 @@ mod tests {
             .bundles
             .iter()
             .any(|bundle| bundle.platform == "macos-aarch64" && !bundle.sha256.is_empty()));
+        assert!(policies
+            .hdc
+            .bundles
+            .iter()
+            .any(|bundle| bundle.platform == "macos-x64" && !bundle.sha256.is_empty()));
         let report = policies.report();
         assert!(report.ready_for_install());
         assert!(!report.gaps.contains(&PolicyGap::HdcSha256NotPinned));

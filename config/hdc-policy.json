@@ -8,6 +8,12 @@
       "version": "3.2.0d",
       "fileName": "hdc",
       "sha256": "26dac6adf0963d0ebe4b2cbaf60d1ee74d6a993a998340de18c5df587e41c797"
+    },
+    {
+      "platform": "macos-x64",
+      "version": "3.2.0d",
+      "fileName": "hdc",
+      "sha256": "231cbb96590a4568e8681b4691b45db4b33638dfee6586a13134aac9ac08c386"
     }
   ]
 }

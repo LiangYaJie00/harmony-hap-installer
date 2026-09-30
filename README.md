@@ -2,6 +2,8 @@
 
 在 QA 电脑上把 DEV HAP 下载、校验后，用工具自带的 HDC 安装到鸿蒙真机。安装失败不会回传或改变打包平台上的构建任务。
 
+macOS Apple 芯片安装包：[HHI_0.1.0_aarch64.dmg](https://github.com/LiangYaJie00/harmony-hap-installer/releases/download/v0.1.0/HHI_0.1.0_aarch64.dmg)
+
 当前安装包内置的是 macOS Apple 芯片上的 `hdc` 3.2.0d。Windows 的 `hdc.exe` 还没有放进 `vendor/hdc/windows-x64/`，所以还不能打出可用的 Windows 包。
 
 首页的高级设置默认关闭。关闭时不限制下载域名、包名和证书指纹，选中的 HAP 可以安装。开启后，这三项名单必须都填写，否则拒绝安装。名单保存在工具自己的数据目录 `identity-policy.json`，不写进安装包。

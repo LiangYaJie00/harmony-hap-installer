@@ -184,7 +184,22 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; box-shado
 .check input { margin: 0; accent-color: var(--accent); }
 
 .history, .devices { display: grid; gap: 8px; margin-top: 12px; }
-.history { list-style: none; padding: 0; }
+.history { padding: 0; }
+.bundle {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px 14px;
+}
+.bundle summary small { margin-left: auto; color: var(--faint); font-weight: 450; }
+.bundle ul {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+}
 .history li, .device, .empty {
   display: flex;
   align-items: center;
@@ -195,6 +210,19 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; box-shado
   border-radius: 14px;
   background: #fff;
 }
+.history li { padding: 8px 10px; background: var(--bg); }
+button.history-main {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-weight: 450;
+  box-shadow: none;
+}
+button.history-main:hover, button.history-main:active { background: transparent; box-shadow: none; }
+.history .forget { flex: none; padding: 8px 12px; }
 .device { justify-content: flex-start; }
 .device-main { flex: 1; }
 .history-main, .device-main { display: grid; gap: 3px; min-width: 0; }

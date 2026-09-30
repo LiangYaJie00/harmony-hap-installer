@@ -113,6 +113,21 @@ fn history(state: tauri::State<'_, AppState>) -> Result<Vec<harmony_hap_storage:
 }
 
 #[tauri::command]
+fn packages(state: tauri::State<'_, AppState>) -> Result<Vec<harmony_hap_storage::PackageView>, InstallError> {
+    with_installer(&state, |installer| installer.packages())
+}
+
+#[tauri::command]
+fn open_cached(state: tauri::State<'_, AppState>, sha256: String) -> Result<harmony_hap_cli::ArtifactView, InstallError> {
+    with_installer(&state, |installer| installer.open_cached(&sha256))
+}
+
+#[tauri::command]
+fn forget_package(state: tauri::State<'_, AppState>, sha256: String) -> Result<(), InstallError> {
+    with_installer(&state, |installer| installer.forget_package(&sha256))
+}
+
+#[tauri::command]
 fn diagnostics(state: tauri::State<'_, AppState>) -> Result<String, InstallError> {
     with_installer(&state, |installer| installer.diagnostics())
 }
@@ -139,6 +154,9 @@ pub fn run() {
             install,
             launch,
             history,
+            packages,
+            open_cached,
+            forget_package,
             diagnostics,
             open_url
         ])

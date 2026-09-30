@@ -198,21 +198,84 @@ async function refreshStatus() {
   $("hdc-path").textContent = doctor.hdcPath ? `内置 HDC：${doctor.hdcVersion} · ${doctor.hdcPath}` : "";
   $("identity-note").textContent = doctor.identityNote;
   if (doctor.gaps.length) setBanner(doctor.gaps.join("；"));
-  const history = await invoke("history");
-  const items = history.slice(-8).reverse();
-  $("history").innerHTML = items.length
-    ? items.map((item) => {
-      const label = RESULT_LABEL[item.result] || item.result;
-      const ok = item.result === "INSTALLED";
-      return `<li>
-        <span class="history-main">
-          <strong>${escapeHtml(formatBundle(item.bundleName))}</strong>
-          <span>${escapeHtml(formatVersion(item.versionName, item.versionCode))} · ${escapeHtml(formatTime(item.at))}</span>
-        </span>
-        <span class="badge ${ok ? "ok" : "bad"}">${escapeHtml(label)}</span>
-      </li>`;
-    }).join("")
-    : `<li class="empty">还没有安装记录</li>`;
+  const packages = await invoke("packages");
+  renderPackages(packages);
+}
+
+function renderPackages(items) {
+  if (!items.length) {
+    $("history").innerHTML = `<p class="empty">还没有安装包。选择或下载一个 HAP 后，会留在这里。</p>`;
+    return;
+  }
+  const groups = new Map();
+  for (const item of items) {
+    const key = item.bundleName || "未知包名";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const ordered = [...groups.entries()].sort((left, right) => latestAt(right[1]).localeCompare(latestAt(left[1])));
+  const newest = ordered[0][0];
+  $("history").innerHTML = ordered.map(([bundle, rows]) => {
+    const versions = [...rows].sort((left, right) => right.at.localeCompare(left.at));
+    return `<details class="bundle"${bundle === newest ? " open" : ""}>
+      <summary><span>${escapeHtml(formatBundle(bundle))}</span><small>${versions.length} 个版本</small></summary>
+      <ul>${versions.map(packageRow).join("")}</ul>
+    </details>`;
+  }).join("");
+}
+
+function latestAt(rows) {
+  return rows.reduce((max, row) => (row.at > max ? row.at : max), "");
+}
+
+function packageRow(item) {
+  const cleaned = !item.cached;
+  const label = cleaned ? "安装包已清理" : (RESULT_LABEL[item.result] || "待安装");
+  const tone = cleaned || item.result === "FAILED" || item.result === "VERIFY_FAILED"
+    ? "bad"
+    : item.result === "INSTALLED"
+      ? "ok"
+      : item.result === "UNKNOWN"
+        ? "warn"
+        : "muted";
+  return `<li>
+    <button type="button" class="history-main reopen" data-sha="${escapeHtml(item.sha256)}" ${cleaned ? "disabled" : ""}>
+      <strong>${escapeHtml(formatVersion(item.versionName, item.versionCode))}</strong>
+      <span>${escapeHtml(formatTime(item.at))}${cleaned ? "" : " · 再次安装"}</span>
+    </button>
+    <span class="badge ${tone}">${escapeHtml(label)}</span>
+    <button type="button" class="ghost forget" data-sha="${escapeHtml(item.sha256)}">删除</button>
+  </li>`;
+}
+
+async function reopenPackage(sha) {
+  if (busy || !sha) return;
+  setBusy("正在核对安装包", "重新校验本机缓存的 HAP");
+  await paint();
+  try {
+    const next = await invoke("open_cached", { sha256: sha });
+    setBusy("正在检查设备", "查找已连接的鸿蒙设备");
+    showArtifact(next);
+    await refreshDevices();
+  } catch (error) {
+    showResult({ ok: false, title: "这个安装包打不开", body: errorText(error), canLaunch: false, canRetry: false });
+  } finally {
+    setBusy("");
+  }
+}
+
+async function forgetPackage(sha) {
+  if (busy || !sha) return;
+  setBusy("正在删除", "移除这条安装包和对应的缓存");
+  await paint();
+  try {
+    await invoke("forget_package", { sha256: sha });
+    await refreshStatus();
+  } catch (error) {
+    setBanner(errorText(error));
+  } finally {
+    setBusy("");
+  }
 }
 
 function showArtifact(next) {
@@ -328,6 +391,15 @@ async function resolveUrl() {
   }
 }
 
+$("history").addEventListener("click", (event) => {
+  const forget = event.target.closest(".forget");
+  if (forget) {
+    forgetPackage(forget.dataset.sha);
+    return;
+  }
+  const reopen = event.target.closest(".reopen");
+  if (reopen && !reopen.disabled) reopenPackage(reopen.dataset.sha);
+});
 $("paste").onclick = async () => {
   try {
     $("url").value = (await navigator.clipboard.readText()).trim();

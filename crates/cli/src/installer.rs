@@ -9,7 +9,10 @@ use harmony_hap_core::{
 };
 use harmony_hap_hdc::{classify_install_failure, BundleSnapshot, DeviceState, HdcClient};
 use harmony_hap_qrcode::decode_qr_bytes;
-use harmony_hap_storage::{append_history, append_log, cleanup, read_history, read_log, DeviceLock, HistoryItem, Layout};
+use harmony_hap_storage::{
+    append_history, append_log, cleanup, delete_package, package_views, read_history, read_log, read_packages, touch_package_result,
+    upsert_package, DeviceLock, HistoryItem, Layout, PackageRecord, PackageView,
+};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -329,6 +332,57 @@ impl Installer {
         read_history(&self.layout)
     }
 
+    pub fn packages(&self) -> Result<Vec<PackageView>, InstallError> {
+        self.import_history_packages()?;
+        package_views(&self.layout)
+    }
+
+    fn import_history_packages(&self) -> Result<(), InstallError> {
+        let existing = read_packages(&self.layout)?;
+        let known: std::collections::HashSet<&str> = existing.iter().map(|item| item.sha256.as_str()).collect();
+        let mut latest: std::collections::HashMap<String, HistoryItem> = std::collections::HashMap::new();
+        for item in read_history(&self.layout)? {
+            if known.contains(item.sha256.as_str()) || item.sha256.len() != 64 {
+                continue;
+            }
+            latest.insert(item.sha256.clone(), item);
+        }
+        let mut imported: Vec<HistoryItem> = latest.into_values().collect();
+        imported.sort_by(|left, right| left.at.cmp(&right.at));
+        for item in imported {
+            upsert_package(
+                &self.layout,
+                PackageRecord {
+                    at: item.at,
+                    file_name: "artifact.hap".into(),
+                    bundle_name: item.bundle_name,
+                    version_name: item.version_name,
+                    version_code: item.version_code,
+                    sha256: item.sha256,
+                    source_host: String::new(),
+                    result: item.result,
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn open_cached(&self, sha256: &str) -> Result<ArtifactView, InstallError> {
+        let record = read_packages(&self.layout)?
+            .into_iter()
+            .find(|item| item.sha256 == sha256)
+            .ok_or_else(|| InstallError::new(ErrorCode::SourceInvalid, "没有这个安装包"))?;
+        let cached = self.layout.cache_hap(sha256)?;
+        if !cached.is_file() {
+            return Err(InstallError::new(ErrorCode::SourceInvalid, "安装包已清理"));
+        }
+        self.store_verified(&cached, &record.file_name, None, Some(sha256), None, None, None, "", &record.source_host)
+    }
+
+    pub fn forget_package(&self, sha256: &str) -> Result<(), InstallError> {
+        delete_package(&self.layout, sha256)
+    }
+
     pub fn cleanup(&self) -> Result<(), InstallError> {
         cleanup(&self.layout, std::time::SystemTime::now())
     }
@@ -424,6 +478,7 @@ impl Installer {
             error_code: code.map(|item| format!("{item:?}")),
         };
         append_history(&self.layout, item)?;
+        touch_package_result(&self.layout, &info.sha256, result, &chrono_now())?;
         let line = redact_text(&format!("{result} {} {}", short_hash(&info.sha256), digest_id(device_id)), &[device_id]);
         append_log(&self.layout, &line)
     }
@@ -452,6 +507,19 @@ impl Installer {
             let _ = fs::remove_file(&cached);
             return Err(InstallError::new(ErrorCode::HashMismatch, ""));
         }
+        upsert_package(
+            &self.layout,
+            PackageRecord {
+                at: chrono_now(),
+                file_name: safe_hap_name(file_name),
+                bundle_name: info.bundle_name.clone(),
+                version_name: info.version_name.clone(),
+                version_code: info.version_code,
+                sha256: info.sha256.clone(),
+                source_host: source_host.to_string(),
+                result: String::new(),
+            },
+        )?;
         Ok(ArtifactView {
             file_name: "artifact.hap".into(),
             sha_short: short_hash(&info.sha256),

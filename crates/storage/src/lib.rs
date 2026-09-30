@@ -87,6 +87,104 @@ pub struct HistoryItem {
     pub error_code: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageRecord {
+    pub at: String,
+    pub file_name: String,
+    pub bundle_name: String,
+    pub version_name: String,
+    pub version_code: u32,
+    pub sha256: String,
+    pub source_host: String,
+    pub result: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageView {
+    pub at: String,
+    pub file_name: String,
+    pub bundle_name: String,
+    pub version_name: String,
+    pub version_code: u32,
+    pub sha256: String,
+    pub source_host: String,
+    pub result: String,
+    pub cached: bool,
+}
+
+pub fn upsert_package(layout: &Layout, incoming: PackageRecord) -> Result<(), InstallError> {
+    valid_sha(&incoming.sha256)?;
+    layout.ensure()?;
+    let mut items = read_packages(layout)?;
+    let result = if incoming.result.is_empty() {
+        items
+            .iter()
+            .find(|item| item.sha256 == incoming.sha256)
+            .map(|item| item.result.clone())
+            .unwrap_or_default()
+    } else {
+        incoming.result.clone()
+    };
+    items.retain(|item| item.sha256 != incoming.sha256);
+    items.push(PackageRecord { result, ..incoming });
+    write_packages(layout, &items)
+}
+
+pub fn read_packages(layout: &Layout) -> Result<Vec<PackageRecord>, InstallError> {
+    let path = layout.root.join("history").join("packages.json");
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let text = fs::read_to_string(path).map_err(|err| InstallError::new(ErrorCode::InstallFailed, err.to_string()))?;
+    serde_json::from_str(&text).map_err(|err| InstallError::new(ErrorCode::InstallFailed, err.to_string()))
+}
+
+pub fn package_views(layout: &Layout) -> Result<Vec<PackageView>, InstallError> {
+    Ok(read_packages(layout)?
+        .into_iter()
+        .map(|record| {
+            let cached = cache_file(layout, &record.sha256).is_file();
+            PackageView {
+                cached,
+                at: record.at,
+                file_name: record.file_name,
+                bundle_name: record.bundle_name,
+                version_name: record.version_name,
+                version_code: record.version_code,
+                sha256: record.sha256,
+                source_host: record.source_host,
+                result: record.result,
+            }
+        })
+        .collect())
+}
+
+pub fn delete_package(layout: &Layout, sha256: &str) -> Result<(), InstallError> {
+    valid_sha(sha256)?;
+    let mut items = read_packages(layout)?;
+    items.retain(|item| item.sha256 != sha256);
+    write_packages(layout, &items)?;
+    let mut history = read_history(layout)?;
+    history.retain(|item| item.sha256 != sha256);
+    write_history(layout, &history)?;
+    remove_package_cache(layout, sha256);
+    Ok(())
+}
+
+pub fn touch_package_result(layout: &Layout, sha256: &str, result: &str, at: &str) -> Result<(), InstallError> {
+    let mut items = read_packages(layout)?;
+    let Some(index) = items.iter().position(|item| item.sha256 == sha256) else {
+        return Ok(());
+    };
+    let mut updated = items.remove(index);
+    updated.result = result.to_string();
+    updated.at = at.to_string();
+    items.push(updated);
+    write_packages(layout, &items)
+}
+
 pub fn append_history(layout: &Layout, item: HistoryItem) -> Result<(), InstallError> {
     layout.ensure()?;
     let mut items = read_history(layout)?;
@@ -107,6 +205,31 @@ fn write_history(layout: &Layout, items: &[HistoryItem]) -> Result<(), InstallEr
     let path = layout.root.join("history").join("history.json");
     fs::write(path, serde_json::to_vec_pretty(items).unwrap_or_default())
         .map_err(|err| InstallError::new(ErrorCode::InstallFailed, err.to_string()))
+}
+
+fn write_packages(layout: &Layout, items: &[PackageRecord]) -> Result<(), InstallError> {
+    layout.ensure()?;
+    let path = layout.root.join("history").join("packages.json");
+    fs::write(path, serde_json::to_vec_pretty(items).unwrap_or_default())
+        .map_err(|err| InstallError::new(ErrorCode::InstallFailed, err.to_string()))
+}
+
+fn valid_sha(sha256: &str) -> Result<(), InstallError> {
+    if sha256.len() == 64 && sha256.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        Ok(())
+    } else {
+        Err(InstallError::new(ErrorCode::HashMismatch, "缓存键无效"))
+    }
+}
+
+fn cache_file(layout: &Layout, sha256: &str) -> PathBuf {
+    layout.root.join("cache").join(sha256).join("artifact.hap")
+}
+
+fn remove_package_cache(layout: &Layout, sha256: &str) {
+    if valid_sha(sha256).is_ok() {
+        let _ = fs::remove_dir_all(layout.root.join("cache").join(sha256));
+    }
 }
 
 pub fn append_log(layout: &Layout, line: &str) -> Result<(), InstallError> {
@@ -138,7 +261,6 @@ pub fn cleanup(layout: &Layout, now: SystemTime) -> Result<(), InstallError> {
     let cache_limit = now.checked_sub(Duration::from_secs(24 * 60 * 60)).unwrap_or(now);
     let log_limit = now.checked_sub(Duration::from_secs(14 * 24 * 60 * 60)).unwrap_or(now);
     let history_limit = now.checked_sub(Duration::from_secs(30 * 24 * 60 * 60)).unwrap_or(now);
-    remove_older(&layout.root.join("cache"), cache_limit)?;
     remove_older(&layout.root.join("temp"), cache_limit)?;
     remove_older(&layout.root.join("logs"), log_limit)?;
     let mut history = read_history(layout)?;
@@ -147,7 +269,43 @@ pub fn cleanup(layout: &Layout, now: SystemTime) -> Result<(), InstallError> {
         let skip = history.len() - 100;
         history = history.split_off(skip);
     }
-    write_history(layout, &history)
+    write_history(layout, &history)?;
+    let mut packages = read_packages(layout)?;
+    let mut removed = Vec::new();
+    let (keep, drop_old): (Vec<_>, Vec<_>) = packages
+        .drain(..)
+        .partition(|item| parse_time(&item.at).map(|time| time >= history_limit).unwrap_or(true));
+    removed.extend(drop_old);
+    packages = keep;
+    if packages.len() > 100 {
+        let skip = packages.len() - 100;
+        removed.extend(packages.drain(..skip));
+    }
+    for item in &removed {
+        remove_package_cache(layout, &item.sha256);
+    }
+    write_packages(layout, &packages)?;
+    let referenced: Vec<String> = packages.iter().map(|item| item.sha256.clone()).collect();
+    remove_unreferenced_cache(layout, cache_limit, &referenced)
+}
+
+fn remove_unreferenced_cache(layout: &Layout, limit: SystemTime, referenced: &[String]) -> Result<(), InstallError> {
+    let cache = layout.root.join("cache");
+    if !cache.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(&cache).map_err(|err| InstallError::new(ErrorCode::InstallFailed, err.to_string()))? {
+        let entry = entry.map_err(|err| InstallError::new(ErrorCode::InstallFailed, err.to_string()))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if referenced.iter().any(|sha| sha == &name) {
+            continue;
+        }
+        let modified = entry.metadata().and_then(|meta| meta.modified()).unwrap_or(SystemTime::now());
+        if modified < limit {
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
+    Ok(())
 }
 
 fn remove_older(dir: &Path, limit: SystemTime) -> Result<(), InstallError> {
@@ -229,6 +387,59 @@ mod tests {
         assert!(DeviceLock::acquire(&layout, "abc").is_err());
         drop(first);
         assert!(DeviceLock::acquire(&layout, "abc").is_ok());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn package_keeps_result_and_referenced_cache() {
+        let root = std::env::temp_dir().join(format!("hap-packages-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let layout = Layout::from_root(root.clone());
+        layout.ensure().unwrap();
+        let sha = "cd".repeat(32);
+        let cache = layout.cache_hap(&sha).unwrap();
+        fs::write(&cache, b"hap").unwrap();
+        File::open(cache.parent().unwrap()).unwrap().set_modified(SystemTime::UNIX_EPOCH).unwrap();
+        let stale = layout.root.join("cache").join("ee".repeat(32));
+        fs::create_dir_all(&stale).unwrap();
+        let marker = stale.join("artifact.hap");
+        fs::write(&marker, b"old").unwrap();
+        File::open(&stale).unwrap().set_modified(SystemTime::UNIX_EPOCH).unwrap();
+        upsert_package(
+            &layout,
+            PackageRecord {
+                at: chrono::Utc::now().to_rfc3339(),
+                file_name: "demo.hap".into(),
+                bundle_name: "com.example.app".into(),
+                version_name: "1.0.0".into(),
+                version_code: 1,
+                sha256: sha.clone(),
+                source_host: "本地文件".into(),
+                result: "INSTALLED".into(),
+            },
+        )
+        .unwrap();
+        upsert_package(
+            &layout,
+            PackageRecord {
+                at: chrono::Utc::now().to_rfc3339(),
+                file_name: "demo.hap".into(),
+                bundle_name: "com.example.app".into(),
+                version_name: "1.0.0".into(),
+                version_code: 1,
+                sha256: sha.clone(),
+                source_host: "本地文件".into(),
+                result: String::new(),
+            },
+        )
+        .unwrap();
+        assert_eq!(read_packages(&layout).unwrap()[0].result, "INSTALLED");
+        cleanup(&layout, SystemTime::now()).unwrap();
+        assert!(cache.is_file());
+        assert!(!marker.exists());
+        delete_package(&layout, &sha).unwrap();
+        assert!(read_packages(&layout).unwrap().is_empty());
+        assert!(!cache.exists());
         let _ = fs::remove_dir_all(&root);
     }
 }

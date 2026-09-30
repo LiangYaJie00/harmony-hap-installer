@@ -1644,7 +1644,7 @@ dependencies = [
 
 [[package]]
 name = "harmony-hap-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "harmony-hap-core",
@@ -1661,7 +1661,7 @@ dependencies = [
 
 [[package]]
 name = "harmony-hap-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -1676,7 +1676,7 @@ dependencies = [
 
 [[package]]
 name = "harmony-hap-hdc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "harmony-hap-core",
  "hex",
@@ -1687,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "harmony-hap-installer"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "harmony-hap-cli",
  "harmony-hap-core",
@@ -1699,7 +1699,7 @@ dependencies = [
 
 [[package]]
 name = "harmony-hap-qrcode"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "harmony-hap-core",
  "image",
@@ -1709,7 +1709,7 @@ dependencies = [
 
 [[package]]
 name = "harmony-hap-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "fs2",

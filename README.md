@@ -6,7 +6,7 @@
 
 macOS 安装包，Apple 芯片和 Intel 芯片都可以使用：
 
-[HHI_0.1.0_macos.dmg](https://github.com/LiangYaJie00/harmony-hap-installer/releases/download/v0.1.0/HHI_0.1.0_macos.dmg)
+[HHI_0.2.0_macos.dmg](https://github.com/LiangYaJie00/harmony-hap-installer/releases/download/v0.2.0/HHI_0.2.0_macos.dmg)
 
 安装包内置 HDC 3.2.0d。不需要事先安装 HDC，也不需要安装 DevEco。Windows 的 `hdc.exe` 还没有放进 `vendor/hdc/windows-x64/`，目前不能打出可用的 Windows 包。
 

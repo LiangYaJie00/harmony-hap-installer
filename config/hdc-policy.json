@@ -1,12 +1,13 @@
 {
   "schemaVersion": 1,
-  "redistributeHdc": false,
-  "enforceSha256": false,
-  "selectionPriority": ["managed", "commandLineTools", "devEcoStudio"],
-  "allowedVersions": [
+  "redistributeHdc": true,
+  "enforceSha256": true,
+  "bundles": [
     {
-      "version": "3.1.0b",
-      "sha256": null
+      "platform": "macos-aarch64",
+      "version": "3.2.0d",
+      "fileName": "hdc",
+      "sha256": "26dac6adf0963d0ebe4b2cbaf60d1ee74d6a993a998340de18c5df587e41c797"
     }
   ]
 }

@@ -6,3 +6,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+harmony-hap-core = { path = "../core" }
+hex = "0.4"
+serde_json = "1"
+sha2 = "0.10"
+wait-timeout = "0.2"

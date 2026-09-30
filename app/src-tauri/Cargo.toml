@@ -13,5 +13,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+harmony-hap-cli = { path = "../../crates/cli" }
 harmony-hap-core = { path = "../../crates/core" }
+harmony-hap-storage = { path = "../../crates/storage" }
+open = "5"
 tauri = { version = "2", features = [] }

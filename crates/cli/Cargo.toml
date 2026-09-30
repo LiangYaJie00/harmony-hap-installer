@@ -5,9 +5,25 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[lib]
+name = "harmony_hap_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "installer"
 path = "src/main.rs"
 
 [dependencies]
 harmony-hap-core = { path = "../core" }
+harmony-hap-hdc = { path = "../hdc" }
+harmony-hap-qrcode = { path = "../qrcode" }
+harmony-hap-storage = { path = "../storage" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+
+[dev-dependencies]
+rcgen = "0.13"
+zip = "2"

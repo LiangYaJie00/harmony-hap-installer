@@ -3,30 +3,109 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Harmony HAP Installer</title>
-    <style>
-      body {
-        margin: 0;
-        font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
-        background: #f6f7f9;
-        color: #202124;
-      }
-      main {
-        max-width: 720px;
-        margin: 48px auto;
-        padding: 32px;
-        background: #fff;
-        border: 1px solid #e7e7ea;
-        border-radius: 16px;
-      }
-      h1 { margin: 0 0 12px; font-size: 28px; }
-      p { margin: 0; line-height: 1.6; color: #4b4f59; }
-    </style>
+    <title>HHI</title>
+    <link rel="stylesheet" href="app.css" />
   </head>
   <body>
-    <main>
-      <h1>Harmony HAP Installer</h1>
-      <p>桌面壳已就绪。下载、校验和 HDC 安装会在后续步骤接入。</p>
-    </main>
+    <div class="app">
+      <header class="hero">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">HHI</div>
+          <div>
+            <h1>鸿蒙 HAP 包安装平台</h1>
+            <p>把下载链接或本地 HAP 安装到鸿蒙真机</p>
+          </div>
+        </div>
+        <p id="hdc-pill" class="pill">正在检查 HDC…</p>
+      </header>
+      <p id="banner" class="banner" hidden></p>
+
+      <section id="home">
+        <section class="card">
+          <h2>选择安装包</h2>
+          <p class="lead">粘贴平台下载链接，或直接选择本机 HAP。如果链接打开的是网页，会转到浏览器下载。</p>
+          <label class="field">
+            <span>下载链接</span>
+            <input id="url" type="url" placeholder="https://" autocomplete="off" spellcheck="false" />
+          </label>
+          <div class="actions">
+            <button id="use-url" class="primary" type="button">解析链接</button>
+            <button id="paste" class="ghost" type="button">粘贴</button>
+            <label class="ghost file">二维码<input id="qr" type="file" accept="image/*" /></label>
+            <label class="ghost file">本地 HAP<input id="hap" type="file" accept=".hap" /></label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <h2>最近安装</h2>
+          </div>
+          <ul id="history" class="history"></ul>
+        </section>
+
+        <details class="card settings" id="advanced">
+          <summary>
+            <span>高级设置</span>
+            <small id="identity-note"></small>
+          </summary>
+          <label class="check"><input id="enforce" type="checkbox" /> 只安装名单中的域名、包名和证书</label>
+          <label class="field">允许的下载域名，每行一个<textarea id="domains" rows="3" placeholder="apps.example.com"></textarea></label>
+          <label class="field">允许的包名，每行一个<textarea id="bundles" rows="3" placeholder="com.example.app"></textarea></label>
+          <label class="field">证书指纹和到期日，每行「指纹 日期」<textarea id="certs" rows="4" placeholder="64 位 SHA-256  2027-08-28"></textarea></label>
+          <div class="actions">
+            <button id="save-identity" class="primary" type="button">保存设置</button>
+          </div>
+          <p id="hdc-path" class="fine"></p>
+        </details>
+      </section>
+
+      <section id="detail" hidden>
+        <section class="card">
+          <p id="package-source" class="eyebrow"></p>
+          <h2 id="package-name"></h2>
+          <p id="package-version" class="version"></p>
+          <ul id="package-stats" class="stats"></ul>
+          <p id="package-note" class="fine"></p>
+          <details class="more">
+            <summary>签名与校验</summary>
+            <dl id="artifact"></dl>
+          </details>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <h2>安装到哪台设备</h2>
+            <button id="refresh-devices" class="ghost" type="button">重新检查</button>
+          </div>
+          <p id="device-hint" class="lead"></p>
+          <div id="devices" class="devices"></div>
+        </section>
+
+        <div class="footer-actions">
+          <button id="back" class="ghost" type="button">返回</button>
+          <button id="install" class="primary" type="button">安装到这台设备</button>
+        </div>
+      </section>
+
+      <section id="result" class="card" hidden>
+        <p id="result-kicker" class="eyebrow"></p>
+        <h2 id="result-title">结果</h2>
+        <p id="result-body"></p>
+        <div class="actions">
+          <button id="launch" class="primary" type="button" hidden>打开应用</button>
+          <button id="retry" class="ghost" type="button">用这个包重试</button>
+          <button id="copy" class="ghost" type="button">复制诊断信息</button>
+          <button id="again" class="ghost" type="button">返回首页</button>
+        </div>
+      </section>
+    </div>
+    <div id="overlay" class="overlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+        <p id="overlay-title" class="dialog-title">请稍候</p>
+        <p id="overlay-detail" class="dialog-detail"></p>
+        <div class="track" aria-hidden="true"><div id="overlay-bar" class="bar"></div></div>
+      </div>
+    </div>
+    <script src="app.js"></script>
   </body>
 </html>
